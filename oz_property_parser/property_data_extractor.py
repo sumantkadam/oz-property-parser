@@ -11,6 +11,7 @@ import shutil
 from typing import List
 
 import archive_mgr
+import db_store
 import property_file_manager as prop_mgr
 import property_parser
 import project_logger
@@ -46,6 +47,19 @@ def get_csv_keys() -> List[str]:
     return key_list
 
 
+def write_property_to_sql(sql_path: str,
+                          property_file: property_parser.PropertyFile) -> None:
+    """Write the Property file data to SQL."""
+    property_data = property_file.get_lines_as_list()
+
+    logger.info(F'Write to "{sql_path}"')
+    with db_store.SqliteDb(sql_path) as db:
+        if not os.path.exists(sql_path):
+            db.create()
+
+        with db.session_scope() as session:
+            db_store.insert_bulk_sales_data(session, property_data)
+
 def write_property_to_csv(csv_path: str,
                           property_file: property_parser.PropertyFile) -> None:
     """Write the parsed log file to a csv file."""
@@ -67,7 +81,7 @@ def write_property_to_csv(csv_path: str,
         dict_writer.writerows(csv_data)
 
 
-def parse_path(path: str, csv_path: str) -> None:
+def parse_path(path: str, csv_path: str, sql_path: str) -> None:
     """Parse the path for Property files."""
     logger.info(F'Parse Property files in "{path}"')
 
@@ -85,8 +99,8 @@ def parse_path(path: str, csv_path: str) -> None:
                 except archive_mgr.ExtractionError as error:
                     logger.exception('Extraction Error: "{error}"')
                 else:
-                    # Check the Extracted folder for Files as well
-                    parse_path(dest_dir, csv_path)
+                    # Recursion - Check the Extracted folder for Files as well
+                    parse_path(dest_dir, csv_path, sql_path)
 
                     # Delete the created folder again
                     logger.debug(F'Deleting Extration directory "{dest_dir}"')
@@ -108,9 +122,12 @@ def parse_path(path: str, csv_path: str) -> None:
                 else:
                     logger.info('Parse Log File')
                     property_file.parse()
-
-                    write_property_to_csv(csv_path, property_file)
                     logger.info('Parsing complete')
+                    logger.info('Export to CSV')
+                    write_property_to_csv(csv_path, property_file)
+                    logger.info('Export to SQL')
+                    write_property_to_sql(sql_path, property_file)
+                    logger.info('Export complete')
 
 
 def main() -> None:
@@ -126,7 +143,9 @@ def main() -> None:
     logger.info(F'Command Line Arguments: "{args}"')
 
     # Process Log Dir
-    parse_path(args.dir, os.path.join(args.dir, F'ParseResult_Properties.csv'))
+    parse_path(args.dir,
+               os.path.join(args.dir, F'ParseResult_Properties.csv'),
+               os.path.join(args.dir, F'ParseResult_Properties.sql'))
 
 
 if __name__ == '__main__':
