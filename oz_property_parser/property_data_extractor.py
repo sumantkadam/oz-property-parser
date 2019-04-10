@@ -161,8 +161,10 @@ def parse_path(sql_data_manager, path: str, csv_path: str, parent_file_id=None) 
                     logger.info('Parse Log File')
                     property_file.parse()
                     logger.info('Parsing complete')
+                    '''
                     logger.info('Export to CSV')
                     write_property_to_csv(csv_path, property_file)
+                    '''
                     logger.info('Export to SQL')
                     write_property_to_sql(sql_data_manager, property_file)
                     logger.info('Export complete')
