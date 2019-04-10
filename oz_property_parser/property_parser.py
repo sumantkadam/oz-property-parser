@@ -33,6 +33,7 @@ class PropertyData(enum.Enum):
 
     # Address Details
     DISTRICT_CODE = 'District_Code'
+    DISTRICT = 'District'
     UNIT_NUMBER = 'Unit_Number'
     HOUSE_NUMBER = 'House_Number'
     STREET_NAME = 'Street_Name'
