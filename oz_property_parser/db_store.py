@@ -2,6 +2,8 @@
 
 """Manage the Database."""
 
+import logging
+
 from contextlib import contextmanager
 
 from sqlalchemy import (Boolean, Column, Integer, String, ForeignKey, Table,
@@ -14,6 +16,8 @@ from sqlalchemy.interfaces import PoolListener
 from sqlalchemy.orm import relationship, sessionmaker, backref, mapper
 
 Base = declarative_base()
+
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class ScannedFile(Base):
@@ -85,6 +89,50 @@ class SqliteDb():
             raise
         finally:
             session.close()
+
+
+class DataManager():
+    """Manager for combined commits."""
+
+    def __init__(self, session, commit_max=10000):
+        logger.info('DataManager.__init__()')
+        self._commit_max = commit_max
+        self._property_count = 0
+        self._property_list = []
+        self._session = session
+        self._commit_count = 0
+        self._property_total = 0
+
+    def __enter__(self):
+        logger.info('DataManager.__enter__()')
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._commit()
+        logger.info(F'  Exit: Adds: {self._property_total}, Commits: {self._commit_count}')
+
+    def add_property_list(self, property_list):
+        count = len(property_list)
+        self._property_list += property_list
+        self._property_count += count
+        self._property_total += count
+
+        if self._property_count >= self._commit_max:
+            self._commit()
+
+    def _commit(self):
+        logger.info('DataManager._commit()')
+        if self._property_count > 0:
+            logger.info(F'DataManager._commit(): Property Count: {self._property_count}')
+            #logger.debug(F'{datetime.datetime.now()} - Insert Start')
+            insert_bulk_sales_data(self._session, self._property_list)
+            #logger.debug(F'{datetime.datetime.now()} - Insert End, Commit Start')
+            self._session.commit()
+            #logger.debug(F'{datetime.datetime.now()} - Commit End')
+            self._property_count = 0
+            self._commit_count += 1
+            del self._property_list[:]
+            logger.info(F'  Adds: {self._property_total:20}, Commits: {self._commit_count:10}')
 
 
 def insert_bulk_sales_data(session, data_dic):

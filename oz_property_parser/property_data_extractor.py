@@ -47,19 +47,13 @@ def get_csv_keys() -> List[str]:
     return key_list
 
 
-def write_property_to_sql(sql_path: str,
+def write_property_to_sql(sql_data_manager,
                           property_file: property_parser.PropertyFile) -> None:
     """Write the Property file data to SQL."""
     property_data = property_file.get_lines_as_list()
 
-    logger.info(F'Write to "{sql_path}"')
-    with db_store.SqliteDb(sql_path) as db:
-        if not os.path.exists(sql_path):
-            columns = [str(field.value) for field in property_parser.PropertyData]
-            db.create(columns)
+    sql_data_manager.add_property_list(property_data)
 
-        with db.session_scope() as session:
-            db_store.insert_bulk_sales_data(session, property_data)
 
 def write_property_to_csv(csv_path: str,
                           property_file: property_parser.PropertyFile) -> None:
@@ -82,7 +76,7 @@ def write_property_to_csv(csv_path: str,
         dict_writer.writerows(csv_data)
 
 
-def parse_path(path: str, csv_path: str, sql_path: str) -> None:
+def parse_path(sql_data_manager, path: str, csv_path: str) -> None:
     """Parse the path for Property files."""
     logger.info(F'Parse Property files in "{path}"')
 
@@ -101,7 +95,10 @@ def parse_path(path: str, csv_path: str, sql_path: str) -> None:
                     logger.exception('Extraction Error: "{error}"')
                 else:
                     # Recursion - Check the Extracted folder for Files as well
-                    parse_path(dest_dir, csv_path, sql_path)
+                    parse_path(sql_data_manager, dest_dir, csv_path)
+
+                    # Commit for each archive to not delay too much
+                    sql_data_manager._commit()
 
                     # Delete the created folder again
                     logger.debug(F'Deleting Extration directory "{dest_dir}"')
@@ -127,7 +124,7 @@ def parse_path(path: str, csv_path: str, sql_path: str) -> None:
                     logger.info('Export to CSV')
                     write_property_to_csv(csv_path, property_file)
                     logger.info('Export to SQL')
-                    write_property_to_sql(sql_path, property_file)
+                    write_property_to_sql(sql_data_manager, property_file)
                     logger.info('Export complete')
 
 
@@ -143,10 +140,18 @@ def main() -> None:
 
     logger.info(F'Command Line Arguments: "{args}"')
 
-    # Process Log Dir
-    parse_path(args.dir,
-               os.path.join(args.dir, F'ParseResult_Properties.csv'),
-               os.path.join(args.dir, F'ParseResult_Properties.sql'))
+    db_path = os.path.join(args.dir, F'ParseResult_Properties.sql')
+    with db_store.SqliteDb(db_path) as db:
+        if not os.path.exists(db_path):
+            columns = [str(field.value) for field in property_parser.PropertyData]
+            db.create(columns)
+
+        with db.session_scope() as session:
+            with db_store.DataManager(session, 1000000) as sql_data_manager:
+
+                # Process Log Dir
+                parse_path(sql_data_manager, args.dir,
+                        os.path.join(args.dir, F'ParseResult_Properties.csv'))
 
 
 if __name__ == '__main__':
