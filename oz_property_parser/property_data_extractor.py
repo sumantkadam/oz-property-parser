@@ -7,6 +7,7 @@ import csv
 import logging
 import os
 import shutil
+import zlib
 
 from typing import List
 
@@ -33,6 +34,38 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError(F'"{args.dir}" is not a vaid directory')
 
 
+def file_size(file_path):
+    file_size = os.path.getsize(file_path)
+    return file_size
+
+
+def checksum_adler32(file_path):
+    csum = 1
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            csum = zlib.adler32(chunk, csum)
+    csum = csum & 0xffffffff
+    return csum
+
+
+def add_scanned_file(sql_data_manager, file_path, size, checksum, extracted_from=None):
+    """Add a scanned File."""
+    scanned_file = db_store.ScannedFile(full_path=file_path, processed=False,
+                                         size_bytes=size, checksum=checksum,
+                                         extracted_from_id=extracted_from)
+    sql_data_manager._session.add(scanned_file)
+    sql_data_manager._session.flush()
+    return scanned_file
+
+
+def write_property_to_sql(sql_data_manager,
+                          property_file: property_parser.PropertyFile) -> None:
+    """Write the Property file data to SQL."""
+    property_data = property_file.get_lines_as_list()
+
+    sql_data_manager.add_property_list(property_data)
+
+
 def get_csv_keys() -> List[str]:
     """Create a list of csv keys."""
     key_list = []
@@ -45,14 +78,6 @@ def get_csv_keys() -> List[str]:
     logger.debug(F'Created Key List: {key_list}')
 
     return key_list
-
-
-def write_property_to_sql(sql_data_manager,
-                          property_file: property_parser.PropertyFile) -> None:
-    """Write the Property file data to SQL."""
-    property_data = property_file.get_lines_as_list()
-
-    sql_data_manager.add_property_list(property_data)
 
 
 def write_property_to_csv(csv_path: str,
@@ -76,14 +101,29 @@ def write_property_to_csv(csv_path: str,
         dict_writer.writerows(csv_data)
 
 
-def parse_path(sql_data_manager, path: str, csv_path: str) -> None:
+def parse_path(sql_data_manager, path: str, csv_path: str, parent_file_id=None) -> None:
     """Parse the path for Property files."""
-    logger.info(F'Parse Property files in "{path}"')
+    logger.info(F'Parse Property files in "{path}", ParentFileId: "{parent_file_id}"')
 
     for root, _, files in os.walk(path):
         for filename in files:
             file_path = os.path.join(root, filename)
             logger.info(F'Process "{file_path}"')
+
+            # Setup Scanned file in the DB
+            size = file_size(file_path)
+            checksum = checksum_adler32(file_path)
+            db_file_entry = sql_data_manager._session.query(
+                db_store.ScannedFile).filter_by(
+                    size_bytes=size, checksum=checksum).first()
+            if not db_file_entry:
+                db_file_entry = add_scanned_file(
+                    sql_data_manager, file_path, size, checksum, parent_file_id)
+
+            # Don't process the file if done previously
+            if db_file_entry.processed:
+                logger.info(F'Skipping, File previously processed')
+                continue
 
             # Check file for extraction
             if archive_mgr.file_is_archive(file_path):
@@ -95,7 +135,7 @@ def parse_path(sql_data_manager, path: str, csv_path: str) -> None:
                     logger.exception('Extraction Error: "{error}"')
                 else:
                     # Recursion - Check the Extracted folder for Files as well
-                    parse_path(sql_data_manager, dest_dir, csv_path)
+                    parse_path(sql_data_manager, dest_dir, csv_path, db_file_entry.id)
 
                     # Commit for each archive to not delay too much
                     sql_data_manager._commit()
@@ -126,6 +166,9 @@ def parse_path(sql_data_manager, path: str, csv_path: str) -> None:
                     logger.info('Export to SQL')
                     write_property_to_sql(sql_data_manager, property_file)
                     logger.info('Export complete')
+
+            # Flag the File as Processed
+            db_file_entry.processed = True
 
 
 def main() -> None:
