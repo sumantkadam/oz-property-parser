@@ -62,13 +62,12 @@ class SqliteDb():
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def create(self):
+    def create(self, sales_data_columns=[]):
 
         ### ERIC TEST START - Think how to get the list here nicer without depending of property_parser
-        import property_parser
-        columns = [str(field.value) for field in property_parser.PropertyData]
+        #import property_parser
         sales_table = Table('SalesData', Base.metadata, Column('id', Integer, primary_key=True),
-                  *(Column(col, Unicode(255)) for col in columns))
+                  *(Column(col, Unicode(255)) for col in sales_data_columns))
         mapper(SalesData, sales_table)
         ### ERIC TEST END
 

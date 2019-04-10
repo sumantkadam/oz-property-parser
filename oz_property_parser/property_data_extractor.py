@@ -55,7 +55,8 @@ def write_property_to_sql(sql_path: str,
     logger.info(F'Write to "{sql_path}"')
     with db_store.SqliteDb(sql_path) as db:
         if not os.path.exists(sql_path):
-            db.create()
+            columns = [str(field.value) for field in property_parser.PropertyData]
+            db.create(columns)
 
         with db.session_scope() as session:
             db_store.insert_bulk_sales_data(session, property_data)
