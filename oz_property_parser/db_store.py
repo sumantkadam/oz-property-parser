@@ -6,6 +6,8 @@ import logging
 
 from contextlib import contextmanager
 
+import sqlalchemy
+
 from sqlalchemy import (Boolean, Column, Integer, String, ForeignKey, Table,
                         UniqueConstraint, create_engine, Unicode)
 
@@ -124,7 +126,7 @@ class DataManager():
         self._session.add(scanned_file)
         self._session.flush()
 
-    def find_scanned_file(self, size, checksum):
+    def find_scanned_file(self, size, checksum) -> sqlalchemy.orm.query.Query:
         """Find a scanned file."""
         return self._session.query(ScannedFile).filter_by(
             size_bytes=size, checksum=checksum).first()

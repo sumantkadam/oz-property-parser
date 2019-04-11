@@ -34,12 +34,12 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError(F'"{args.dir}" is not a vaid directory')
 
 
-def file_size(file_path):
+def file_size(file_path) -> int:
     """Get the file size in bytes of the given file."""
     return os.path.getsize(file_path)
 
 
-def checksum_adler32(file_path):
+def checksum_adler32(file_path) -> int:
     """Calculate the adler32 checksum of the given file."""
     csum = 1
     with open(file_path, "rb") as file_handle:
@@ -49,8 +49,8 @@ def checksum_adler32(file_path):
     return csum
 
 
-def add_scanned_file(sql_data_manager, file_path, size, checksum,
-                     extracted_from=None):
+def add_scanned_file(sql_data_manager: db_store.DataManager, file_path: str,
+                     size: int, checksum: int, extracted_from=None):
     """Add a scanned File."""
     scanned_file = db_store.ScannedFile(
         full_path=file_path, processed=False, size_bytes=size,
@@ -59,12 +59,13 @@ def add_scanned_file(sql_data_manager, file_path, size, checksum,
     return scanned_file
 
 
-def get_scanned_file(sql_data_manager, size, checksum):
+def get_scanned_file(sql_data_manager: db_store.DataManager, size: int,
+                     checksum: int):
     """Find a scanned file."""
     return sql_data_manager.find_scanned_file(size, checksum)
 
 
-def write_property_to_sql(sql_data_manager,
+def write_property_to_sql(sql_data_manager: db_store.DataManager,
                           property_file: property_parser.PropertyFile) -> None:
     """Write the Property file data to SQL."""
     property_data = property_file.get_lines_as_list()
@@ -107,8 +108,8 @@ def write_property_to_csv(csv_path: str,
         dict_writer.writerows(csv_data)
 
 
-def parse_path(sql_data_manager, path: str, csv_path: str,
-               parent_file_id=None) -> None:
+def parse_path(sql_data_manager: db_store.DataManager, path: str,
+               csv_path: str, parent_file_id=None) -> None:
     """Parse the path for Property files."""
     logger.info(F'Parse "{path}", ParentFileId: "{parent_file_id}"')
 
