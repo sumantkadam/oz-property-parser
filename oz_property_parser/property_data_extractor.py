@@ -52,9 +52,9 @@ def checksum_adler32(file_path):
 
 def add_scanned_file(sql_data_manager, file_path, size, checksum, extracted_from=None):
     """Add a scanned File."""
-    scanned_file = db_store.ScannedFile(full_path=file_path, processed=False,
-                                         size_bytes=size, checksum=checksum,
-                                         extracted_from_id=extracted_from)
+    scanned_file = db_store.ScannedFile(
+        full_path=file_path, processed=False, size_bytes=size,
+        checksum=checksum, extracted_from_id=extracted_from)
     sql_data_manager._session.add(scanned_file)
     sql_data_manager._session.flush()
     return scanned_file
@@ -197,8 +197,9 @@ def main() -> None:
             with db_store.DataManager(session, 1000000) as sql_data_manager:
 
                 # Process Log Dir
-                parse_path(sql_data_manager, args.dir,
-                        os.path.join(args.dir, F'ParseResult_Properties.csv'))
+                parse_path(
+                    sql_data_manager, args.dir,
+                    os.path.join(args.dir, F'ParseResult_Properties.csv'))
 
 
 if __name__ == '__main__':

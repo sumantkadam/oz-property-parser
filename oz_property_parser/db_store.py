@@ -60,7 +60,7 @@ class SqliteDb():
     def __enter__(self):
         self.engine = create_engine(
             self.connection_string,
-            #echo=True,
+            # echo=True,
             listeners=[SqliteForeignKeysListener()])  # Enforce Foreign Keys
 
         self.Session = sessionmaker(bind=self.engine)
@@ -71,8 +71,9 @@ class SqliteDb():
 
     def create(self, sales_data_columns=[]):
         """Create this SQL Database."""
-        sales_table = Table('SalesData', Base.metadata, Column('id', Integer, primary_key=True),
-                  *(Column(col, Unicode(255)) for col in sales_data_columns))
+        sales_table = Table(
+            'SalesData', Base.metadata, Column('id', Integer, primary_key=True),
+            *(Column(col, Unicode(255)) for col in sales_data_columns))
         mapper(SalesData, sales_table)
 
         Base.metadata.create_all(self.engine)
@@ -127,11 +128,11 @@ class DataManager():
         logger.info('DataManager._commit()')
         if self._property_count > 0:
             logger.info(F'DataManager._commit(): Property Count: {self._property_count}')
-            #logger.debug(F'{datetime.datetime.now()} - Insert Start')
+            # logger.debug(F'{datetime.datetime.now()} - Insert Start')
             insert_bulk_sales_data(self._session, self._property_list)
-            #logger.debug(F'{datetime.datetime.now()} - Insert End, Commit Start')
+            # logger.debug(F'{datetime.datetime.now()} - Insert End, Commit Start')
             self._session.commit()
-            #logger.debug(F'{datetime.datetime.now()} - Commit End')
+            # logger.debug(F'{datetime.datetime.now()} - Commit End')
             self._property_count = 0
             self._commit_count += 1
             del self._property_list[:]
@@ -141,29 +142,3 @@ class DataManager():
 def insert_bulk_sales_data(session, data_dic):
     """Insert bulk data into this session."""
     session.bulk_insert_mappings(SalesData, data_dic)
-
-
-def test():
-    """Test this module."""
-    import os
-    import collections
-    db_path = R'C:\temp\tmp\DbTest\test.db'
-    with SqliteDb(db_path) as db:
-        if not os.path.exists(db_path):
-            db.create()
-
-        with db.session_scope() as session:
-            data_list = [
-                {'HouseNumber': '15', 'StreetName': 'Ring','PostCode': '2211'},
-                {'HouseNumber': 'U400/18', 'StreetName': 'Ring','PostCode': '2211'},
-                {'HouseNumber': '111', 'StreetName': 'Ring 2','PostCode': '3456'},
-            ]
-            data_list = [
-                collections.defaultdict(lambda: '', {'HouseNumber': '15', 'StreetName': 'Ring','PostCode': '2211'}),
-                collections.defaultdict(lambda: '', {'HouseNumber': 'U400/18', 'StreetName': 'Ring','PostCode': '2211'}),
-                collections.defaultdict(lambda: '', {'HouseNumber': '111', 'StreetName': 'Ring 2','PostCode': '3456'}),
-            ]
-            insert_bulk_sales_data(session, data_list)
-
-if __name__ == '__main__':
-    test()
