@@ -127,7 +127,7 @@ class DataManager():
         self._session.flush()
 
     def find_scanned_file(self, size: int,
-                          checksum: int)-> sqlalchemy.orm.query.Query:
+                          checksum: int) -> sqlalchemy.orm.query.Query:
         """Find a scanned file."""
         return self._session.query(ScannedFile).filter_by(
             size_bytes=size, checksum=checksum).first()
