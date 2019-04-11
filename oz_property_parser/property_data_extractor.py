@@ -35,11 +35,13 @@ def validate_args(args: argparse.Namespace) -> None:
 
 
 def file_size(file_path):
+    """Get the file size in bytes of the given file."""
     file_size = os.path.getsize(file_path)
     return file_size
 
 
 def checksum_adler32(file_path):
+    """Calculate the adler32 checksum of the given file."""
     csum = 1
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):

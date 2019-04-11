@@ -44,7 +44,9 @@ class SalesData():
 
 class SqliteForeignKeysListener(PoolListener):
     """Class to setup Foreign Keys."""
+
     def connect(self, dbapi_con, con_record):
+        """Connect the key listener."""
         dbapi_con.execute('pragma foreign_keys=ON')
 
 
@@ -52,6 +54,7 @@ class SqliteDb():
     """SQLAlchemy Sqlite database connection."""
 
     def __init__(self, db_path):
+        """Initialize the Sqlite Database."""
         self.connection_string = 'sqlite:///' + db_path
 
     def __enter__(self):
@@ -67,13 +70,10 @@ class SqliteDb():
         pass
 
     def create(self, sales_data_columns=[]):
-
-        ### ERIC TEST START - Think how to get the list here nicer without depending of property_parser
-        #import property_parser
+        """Create this SQL Database."""
         sales_table = Table('SalesData', Base.metadata, Column('id', Integer, primary_key=True),
                   *(Column(col, Unicode(255)) for col in sales_data_columns))
         mapper(SalesData, sales_table)
-        ### ERIC TEST END
 
         Base.metadata.create_all(self.engine)
 
@@ -95,6 +95,7 @@ class DataManager():
     """Manager for combined commits."""
 
     def __init__(self, session, commit_max=10000):
+        """Initialize Datamanager."""
         logger.info('DataManager.__init__()')
         self._commit_max = commit_max
         self._property_count = 0
@@ -112,6 +113,7 @@ class DataManager():
         logger.info(F'  Exit: Adds: {self._property_total}, Commits: {self._commit_count}')
 
     def add_property_list(self, property_list):
+        """Add a list of properties to Datamanager."""
         count = len(property_list)
         self._property_list += property_list
         self._property_count += count
@@ -121,6 +123,7 @@ class DataManager():
             self._commit()
 
     def _commit(self):
+        """Commit the data of Datamanager."""
         logger.info('DataManager._commit()')
         if self._property_count > 0:
             logger.info(F'DataManager._commit(): Property Count: {self._property_count}')
@@ -136,10 +139,12 @@ class DataManager():
 
 
 def insert_bulk_sales_data(session, data_dic):
+    """Insert bulk data into this session."""
     session.bulk_insert_mappings(SalesData, data_dic)
 
 
 def test():
+    """Test this module."""
     import os
     import collections
     db_path = R'C:\temp\tmp\DbTest\test.db'
