@@ -49,20 +49,20 @@ def checksum_adler32(file_path) -> int:
     return csum
 
 
-def add_scanned_file(sql_data_manager: db_store.DataManager, file_path: str,
-                     size: int, checksum: int, extracted_from=None):
-    """Add a scanned File."""
-    scanned_file = db_store.ScannedFile(
-        full_path=file_path, processed=False, size_bytes=size,
-        checksum=checksum, extracted_from_id=extracted_from)
-    sql_data_manager.add_scanned_file(scanned_file)
-    return scanned_file
+def setup_scanned_file(sql_data_manager: db_store.DataManager, file_path: str,
+                       extracted_from=None):
+    """Set up the scanned file object for this file."""
+    size = file_size(file_path)
+    checksum = checksum_adler32(file_path)
 
+    db_file_entry = sql_data_manager.find_scanned_file(size, checksum)
+    if not db_file_entry:
+        db_file_entry = db_store.ScannedFile(
+            full_path=file_path, processed=False, size_bytes=size,
+            checksum=checksum, extracted_from_id=extracted_from)
+        sql_data_manager.add_scanned_file(db_file_entry)
 
-def get_scanned_file(sql_data_manager: db_store.DataManager, size: int,
-                     checksum: int):
-    """Find a scanned file."""
-    return sql_data_manager.find_scanned_file(size, checksum)
+    return db_file_entry
 
 
 def write_property_to_sql(sql_data_manager: db_store.DataManager,
@@ -126,13 +126,8 @@ def parse_path(sql_data_manager: db_store.DataManager, path: str,
                 continue
 
             # Setup Scanned file in the DB
-            size = file_size(file_path)
-            checksum = checksum_adler32(file_path)
-            db_file_entry = get_scanned_file(sql_data_manager, size, checksum)
-            if not db_file_entry:
-                db_file_entry = add_scanned_file(
-                    sql_data_manager, file_path, size, checksum,
-                    parent_file_id)
+            db_file_entry = setup_scanned_file(sql_data_manager,
+                                               file_path, parent_file_id)
 
             # Don't process the file if done previously
             if db_file_entry.processed:
