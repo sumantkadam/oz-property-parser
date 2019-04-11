@@ -7,15 +7,15 @@ import logging
 from contextlib import contextmanager
 
 from sqlalchemy import (Boolean, Column, Integer, String, ForeignKey, Table,
-                        UniqueConstraint, create_engine, Unicode, MetaData)
+                        UniqueConstraint, create_engine, Unicode)
 
 from sqlalchemy.ext.declarative import declarative_base
 
 from sqlalchemy.interfaces import PoolListener
 
-from sqlalchemy.orm import relationship, sessionmaker, backref, mapper
+from sqlalchemy.orm import relationship, sessionmaker, mapper
 
-Base = declarative_base()
+Base = declarative_base()  # pylint: disable=invalid-name
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -23,10 +23,12 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 class ScannedFile(Base):
     """Represent the already scanned files."""
 
+    # pylint: disable=too-few-public-methods
+
     __tablename__ = 'scanned_file'
 
     # Use ID, keeps the foreign key size smalle
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)  # pylint: disable=invalid-name
     full_path = Column(String)
     processed = Column(Boolean)
     size_bytes = Column(String)
@@ -38,7 +40,7 @@ class ScannedFile(Base):
     UniqueConstraint('size_bytes', 'checksum', name='uix_1')
 
 
-class SalesData():
+class SalesData():  # pylint: disable=too-few-public-methods
     """Sales Data DB."""
 
 
@@ -56,32 +58,35 @@ class SqliteDb():
     def __init__(self, db_path):
         """Initialize the Sqlite Database."""
         self.connection_string = 'sqlite:///' + db_path
+        self._session_func = None
+        self._engine = None
 
     def __enter__(self):
-        self.engine = create_engine(
+        self._engine = create_engine(
             self.connection_string,
             # echo=True,
             listeners=[SqliteForeignKeysListener()])  # Enforce Foreign Keys
 
-        self.Session = sessionmaker(bind=self.engine)
+        self._session_func = sessionmaker(bind=self._engine)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def create(self, sales_data_columns=[]):
+    def create(self, sales_data_columns):
         """Create this SQL Database."""
         sales_table = Table(
-            'SalesData', Base.metadata, Column('id', Integer, primary_key=True),
+            'SalesData', Base.metadata,
+            Column('id', Integer, primary_key=True),
             *(Column(col, Unicode(255)) for col in sales_data_columns))
         mapper(SalesData, sales_table)
 
-        Base.metadata.create_all(self.engine)
+        Base.metadata.create_all(self._engine)
 
     @contextmanager
     def session_scope(self):
         """Provide a transactional scope around a series of operations."""
-        session = self.Session()
+        session = self._session_func()
         try:
             yield session
             session.commit()
@@ -110,8 +115,19 @@ class DataManager():
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._commit()
-        logger.info(F'  Exit: Adds: {self._property_total}, Commits: {self._commit_count}')
+        self.commit()
+        logger.debug(F'Added Properties: {self._property_total}')
+        logger.debug(F'Commits: {self._commit_count}')
+
+    def add_scanned_file(self, scanned_file):
+        """Add a scanned file entry."""
+        self._session.add(scanned_file)
+        self._session.flush()
+
+    def find_scanned_file(self, size, checksum):
+        """Find a scanned file."""
+        return self._session.query(ScannedFile).filter_by(
+            size_bytes=size, checksum=checksum).first()
 
     def add_property_list(self, property_list):
         """Add a list of properties to Datamanager."""
@@ -121,22 +137,20 @@ class DataManager():
         self._property_total += count
 
         if self._property_count >= self._commit_max:
-            self._commit()
+            self.commit()
 
-    def _commit(self):
+    def commit(self):
         """Commit the data of Datamanager."""
-        logger.info('DataManager._commit()')
+        logger.info('DataManager.commit()')
         if self._property_count > 0:
-            logger.info(F'DataManager._commit(): Property Count: {self._property_count}')
-            # logger.debug(F'{datetime.datetime.now()} - Insert Start')
+            logger.info(F'Property Count: {self._property_count}')
             insert_bulk_sales_data(self._session, self._property_list)
-            # logger.debug(F'{datetime.datetime.now()} - Insert End, Commit Start')
             self._session.commit()
-            # logger.debug(F'{datetime.datetime.now()} - Commit End')
             self._property_count = 0
             self._commit_count += 1
             del self._property_list[:]
-            logger.info(F'  Adds: {self._property_total:20}, Commits: {self._commit_count:10}')
+            logger.info((F'Properties Added: {self._property_total:20}'
+                         F', Commits: {self._commit_count:10}'))
 
 
 def insert_bulk_sales_data(session, data_dic):
