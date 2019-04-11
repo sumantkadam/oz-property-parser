@@ -121,17 +121,18 @@ class DataManager():
         logger.debug(F'Added Properties: {self._property_total}')
         logger.debug(F'Commits: {self._commit_count}')
 
-    def add_scanned_file(self, scanned_file):
+    def add_scanned_file(self, scanned_file: ScannedFile) -> None:
         """Add a scanned file entry."""
         self._session.add(scanned_file)
         self._session.flush()
 
-    def find_scanned_file(self, size, checksum) -> sqlalchemy.orm.query.Query:
+    def find_scanned_file(self, size: int,
+                          checksum: int)-> sqlalchemy.orm.query.Query:
         """Find a scanned file."""
         return self._session.query(ScannedFile).filter_by(
             size_bytes=size, checksum=checksum).first()
 
-    def add_property_list(self, property_list):
+    def add_property_list(self, property_list) -> None:
         """Add a list of properties to Datamanager."""
         count = len(property_list)
         self._property_list += property_list

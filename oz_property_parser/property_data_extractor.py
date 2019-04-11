@@ -118,6 +118,13 @@ def parse_path(sql_data_manager: db_store.DataManager, path: str,
             file_path = os.path.join(root, filename)
             logger.info(F'Process "{file_path}"')
 
+            # Check if we should even try to pass the file
+            # Only archives or Property files allowed
+            if ((not archive_mgr.file_is_archive(file_path)) and
+                    (not prop_mgr.file_can_be_parsed(file_path))):
+                logger.info(F'Cannot Parse "{file_path}", SKIP')
+                continue
+
             # Setup Scanned file in the DB
             size = file_size(file_path)
             checksum = checksum_adler32(file_path)
@@ -161,8 +168,9 @@ def parse_path(sql_data_manager: db_store.DataManager, path: str,
             else:
                 # Process the file as property file
                 try:
-                    property_file = prop_mgr.get_property_file_from_path(
+                    property_class = prop_mgr.get_property_file_from_path(
                         file_path)
+                    property_file = property_class(file_path)
                 except ValueError as error:
                     logger.error(F'Failed to Identify Property File: {error}')
                 else:
